@@ -1,6 +1,5 @@
 package com.osmosis.backend.config;
 
-
 import com.alibaba.fastjson.JSONObject;
 import com.osmosis.backend.entity.RestBean;
 import com.osmosis.backend.service.AuthorizeService;
@@ -14,6 +13,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -22,10 +22,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-
 import java.io.IOException;
-
-import static javax.management.Query.and;
 
 @Configuration
 @EnableWebSecurity
@@ -34,35 +31,32 @@ public class SecurityConfiguration {
     @Resource
     AuthorizeService authorizeService;
 
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
-                .authorizeHttpRequests()
-                .anyRequest().authenticated()
-                .and()
-                .formLogin()
-                .loginProcessingUrl("/api/auth/login")
-                .successHandler(this::onAuthenticationSuccess)
-                .failureHandler(this::onAuthenticationFailure)
-                .and()
-                .logout()
-                .logoutUrl("/api/auth/logout")
-                .and()
-                .csrf()
-                .disable()
-                .cors()
-                .configurationSource(this.corsConfigurationSource())
-                .and()
-                .exceptionHandling()
-                .authenticationEntryPoint(this::onAuthenticationFailure)
-                .and()
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().authenticated()
+                )
+                .formLogin(form -> form
+                        .loginProcessingUrl("/api/auth/login")
+                        .successHandler(this::onAuthenticationSuccess)
+                        .failureHandler(this::onAuthenticationFailure)
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/api/auth/logout")
+                )
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors
+                        .configurationSource(this.corsConfigurationSource())
+                )
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(this::onAuthenticationException)
+                )
                 .build();
     }
 
     private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
-        //demo阶段可以允许所有的跨域请求，但上线时需要修改！！！！！！！！
         cors.addAllowedOriginPattern("*");
         cors.setAllowCredentials(true);
         cors.addAllowedHeader("*");
@@ -72,24 +66,31 @@ public class SecurityConfiguration {
         source.registerCorsConfiguration("/**", cors);
         return source;
     }
+
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity security) throws Exception {
-        return security
-                .getSharedObject(AuthenticationManagerBuilder.class)
-                .userDetailsService(authorizeService)
-                .and()
-                .build();
+        AuthenticationManagerBuilder authBuilder = security.getSharedObject(AuthenticationManagerBuilder.class);
+        authBuilder.userDetailsService(authorizeService);
+        return authBuilder.build();
     }
+
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         response.setCharacterEncoding("UTF-8");
         response.getWriter().print(JSONObject.toJSONString(RestBean.success("登录成功")));
     }
+
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
         response.setCharacterEncoding("UTF-8");
         response.getWriter().print(JSONObject.toJSONString(RestBean.failure(401, exception.getMessage())));
+    }
+
+    public void onAuthenticationException(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().print(JSONObject.toJSONString(RestBean.failure(402, exception.getMessage())));
     }
 }

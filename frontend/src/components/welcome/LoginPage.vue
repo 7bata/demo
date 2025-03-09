@@ -4,8 +4,8 @@ import {post} from "@/net";
 import {ElMessage} from "element-plus";
 import router from "@/router";
 import {reactive} from "vue";
-
-
+import "element-plus/es/components/message/style/css";
+import Qs from 'qs'
 
 const form = reactive({
   username: '',
@@ -18,13 +18,13 @@ const login = () => {
     ElMessage.warning('用户名或密码不能为空！')
   }
   else {
-    post('/api/auth/login', {
-      username: form.username,
-      password: form.password,
-      remember: form.remember
-    },(message) => {
+    post('/api/auth/login', (message) => {
       ElMessage.success(message)
       router.push('/index')
+    },{
+          username: form.username,
+          password: form.password,
+          remember: form.remember
     })
   }
 }

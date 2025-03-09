@@ -2,14 +2,15 @@ import axios from 'axios';
 import {ElMessage} from "element-plus";
 
 const defaultError = () => ElMessage.error('请求失败，请稍后再试，或联系管理员！');
-const defaultFailure = (message) => ElMessage.error(message);
+const defaultFailure = (message) => ElMessage.warning(message);
 
 //封装post请求
 function post(url, success, data, failure = defaultFailure, error = defaultError){
     axios.post(url, data,{
         headers: {//设置请求头
-            'Content-Type' : 'application/x-www-form-urlencoded'
+            'Content-Type' : 'application/x-www-form-urlencoded; charset=UTF-8'
         },
+        responseType: 'json',
         withCredentials: true//是否携带cookie
     }).then(({data}) => {
         if(data.success){
