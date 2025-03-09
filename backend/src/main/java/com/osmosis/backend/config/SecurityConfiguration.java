@@ -3,19 +3,25 @@ package com.osmosis.backend.config;
 
 import com.alibaba.fastjson.JSONObject;
 import com.osmosis.backend.entity.RestBean;
+import com.osmosis.backend.service.AuthorizeService;
+import jakarta.annotation.Resource;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationFailureHandler;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 
 import java.io.IOException;
 
@@ -24,6 +30,11 @@ import static javax.management.Query.and;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
+
+    @Resource
+    AuthorizeService authorizeService;
+
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
@@ -40,10 +51,38 @@ public class SecurityConfiguration {
                 .and()
                 .csrf()
                 .disable()
+                .cors()
+                .configurationSource(this.corsConfigurationSource())
+                .and()
                 .exceptionHandling()
                 .authenticationEntryPoint(this::onAuthenticationFailure)
                 .and()
                 .build();
+    }
+
+    private CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration cors = new CorsConfiguration();
+        //demo阶段可以允许所有的跨域请求，但上线时需要修改！！！！！！！！
+        cors.addAllowedOriginPattern("*");
+        cors.setAllowCredentials(true);
+        cors.addAllowedHeader("*");
+        cors.addAllowedMethod("*");
+        cors.addExposedHeader("*");
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", cors);
+        return source;
+    }
+    @Bean
+    public AuthenticationManager authenticationManager(HttpSecurity security) throws Exception {
+        return security
+                .getSharedObject(AuthenticationManagerBuilder.class)
+                .userDetailsService(authorizeService)
+                .and()
+                .build();
+    }
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         response.setCharacterEncoding("UTF-8");
