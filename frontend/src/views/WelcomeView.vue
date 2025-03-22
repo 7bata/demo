@@ -21,7 +21,12 @@
     </div>
     <!-- 右侧背景 登录板块 -->
     <div style="width: 400px; background-color: white; ">
-      <router-view/>
+<!--      不同板块之间的切换-->
+      <router-view v-slot="{ Component }">
+        <transition name="el-fade-in-linear" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </div>
   </div>
 </template>

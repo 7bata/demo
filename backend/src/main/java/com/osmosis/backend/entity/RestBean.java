@@ -4,16 +4,16 @@ package com.osmosis.backend.entity;
 import lombok.Data;
 import lombok.Getter;
 
-@Data
+
 public class RestBean<T> {
     private int status;
     private boolean success;
-    private T massage;
+    private T message;
 
-    private RestBean(int status, boolean success, T massage) {
+    private RestBean(int status, boolean success, T message) {
         this.status = status;
         this.success = success;
-        this.massage = massage;
+        this.message = message;
     }
     public static <T>RestBean<T> success() {
         return new RestBean<>(200, true, null);
@@ -26,5 +26,17 @@ public class RestBean<T> {
     }
     public static <T>RestBean<T> failure(int status, T data) {
         return new RestBean<>(status, false, data);
+    }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public T getMessage() {
+        return message;
     }
 }

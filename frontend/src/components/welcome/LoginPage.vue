@@ -5,7 +5,7 @@ import {ElMessage} from "element-plus";
 import router from "@/router";
 import {reactive} from "vue";
 import "element-plus/es/components/message/style/css";
-import Qs from 'qs'
+
 
 const form = reactive({
   username: '',
@@ -25,6 +25,8 @@ const login = () => {
           username: form.username,
           password: form.password,
           remember: form.remember
+    }, (message)=>{
+      ElMessage.warning(message)
     })
   }
 }
@@ -53,10 +55,10 @@ const login = () => {
     <div style="margin-top: 3px">
       <el-row>
         <el-col :span="12" style="text-align: left">
-          <el-checkbox v-model="form.remember" label="记住我" size="large" />
+          <el-checkbox v-model="form.remember" label="记住我(30天免登录)" size="large" />
         </el-col>
-        <el-col :span="12" style="text-align: right">
-          <el-link href="#">忘记密码?</el-link>
+        <el-col :span="12" style="text-align: right; margin-top: 7px">
+          <el-link @click="router.push('/forget') " href="#">忘记密码/重置密码</el-link>
         </el-col>
       </el-row>
     </div>
@@ -66,11 +68,11 @@ const login = () => {
     </div>
     <!-- 注册按钮 -->
     <el-divider>
-      <span style="color: gray;font-size: 13px;white-space: nowrap">没有账号？点击下方按钮注册</span>
+      <span style="color: gray;font-size: 13px;white-space: nowrap">没有账号？请联系管理员获取</span>
     </el-divider>
-    <div style="margin-top: 40px">
-      <el-button style="width: 270px" type="warning" plain>注册账号</el-button>
-    </div>
+<!--    <div style="margin-top: 40px">-->
+<!--      <el-button style="width: 270px" type="warning" plain>注册账号</el-button>-->
+<!--    </div>-->
   </div>
 </template>
 
