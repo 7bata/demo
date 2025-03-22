@@ -112,16 +112,16 @@ public class SecurityConfiguration {
 
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
         response.setCharacterEncoding("UTF-8");
-//        String message;
-//        if (exception instanceof BadCredentialsException) {
-//            message = "用户名或密码错误";
-//        } else {
-//            message = exception.getMessage();
-//        }
-//        response.getWriter().print(JSONObject.toJSONString(RestBean.failure(401, message)));
+        String message;
+        if (exception instanceof BadCredentialsException) {
+            message = "用户名或密码错误";
+        } else {
+            message = exception.getMessage();
+        }
+        response.getWriter().print(JSONObject.toJSONString(RestBean.failure(401, message)));
         //原项目这里是直接返回了一个exception.getMessage()，但是不知道为什么，登录时用户名或密码错误，总是会在返回时直接被Bad Credentials覆盖
         //2025.3.10测试的时候发现AuthorizeService的自定义异常无法被正常抛出，所以在这里直接默认返回“用户名或密码错误”
         //2025.3.11 AuthorizeService那块代码已经修复，这里可以正常返回自定义异常信息，讲原来的UsernameNotFoundException变成了BadCredentialsException
-        response.getWriter().print(JSONObject.toJSONString(RestBean.failure(401, exception.getMessage())));
+        //response.getWriter().print(JSONObject.toJSONString(RestBean.failure(401, exception.getMessage())));
     }
 }
