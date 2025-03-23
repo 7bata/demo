@@ -1,173 +1,166 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { post } from '@/net'
-import { ElMessage } from 'element-plus'
-import { Calendar, ArrowLeft, ArrowRight, Search } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted, computed } from 'vue';
+import { ElMessage } from 'element-plus';
+import { ArrowLeft, ArrowRight, Calendar, Search, Clock } from '@element-plus/icons-vue';
 
-// 视图类型：周视图或月视图
-const viewType = ref('week') // 'week' 或 'month'
-
-// 当前选中的日期
-const currentDate = ref(new Date())
-
-// 课程数据
-const courseData = ref([])
-const loading = ref(false)
+const viewType = ref('week');
+const currentDate = ref(new Date());
+const loading = ref(false);
+const courses = ref([]);
 
 // 日期选择器
-const datePickerVisible = ref(false)
-const selectedDate = ref('')
+const datePickerVisible = ref(false);
+const selectedDate = ref('');
 
 // 获取今日日期显示格式
 const todayDateString = computed(() => {
-  const today = new Date()
-  const year = today.getFullYear()
-  const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate()).padStart(2, '0')
-  return `${year}年${month}月${day}日 ${['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][today.getDay()]}`
-})
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}年${month}月${day}日 ${['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][today.getDay()]}`;
+});
 
-// 计算当前视图的日期范围
+// 获取日期范围
 const dateRange = computed(() => {
-  const dates = []
-  const date = new Date(currentDate.value)
-  
+  const dates = [];
+  const date = new Date(currentDate.value);
   if (viewType.value === 'week') {
-    // 获取本周的起始日期（周一）
-    const day = date.getDay() || 7 // 将周日的0转换为7
-    date.setDate(date.getDate() - day + 1) // 设置为本周一
-    
-    // 生成一周的日期
+    // 周视图 - 获取本周的7天
+    const day = date.getDay() || 7; // 将周日的0转换为7
+    date.setDate(date.getDate() - day + 1); // 调整到周一
     for (let i = 0; i < 7; i++) {
-      const d = new Date(date)
-      d.setDate(date.getDate() + i)
-      dates.push(d)
+      dates.push(new Date(date));
+      date.setDate(date.getDate() + 1);
     }
-  } else { // 月视图
-    // 设置为当月1号
-    date.setDate(1)
-    
-    // 获取当月的天数
-    const monthDays = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-    
-    // 获取1号是星期几
-    const firstDayWeek = date.getDay() || 7
-    
-    // 日历通常从周一开始，计算需要显示的上个月的天数
-    const prevMonthDays = firstDayWeek - 1
-    
-    // 上个月的日期
-    const prevMonth = new Date(date)
-    prevMonth.setMonth(prevMonth.getMonth() - 1)
-    const prevMonthLastDay = new Date(date.getFullYear(), date.getMonth(), 0).getDate()
-    
-    for (let i = 0; i < prevMonthDays; i++) {
-      const d = new Date(prevMonth)
-      d.setDate(prevMonthLastDay - prevMonthDays + i + 1)
-      dates.push(d)
-    }
-    
-    // 当月的日期
-    for (let i = 0; i < monthDays; i++) {
-      const d = new Date(date)
-      d.setDate(i + 1)
-      dates.push(d)
-    }
-    
-    // 补全日历到6行，添加下个月的日期
-    const totalDays = 42 // 6行7列
-    const nextMonthDays = totalDays - prevMonthDays - monthDays
-    
-    const nextMonth = new Date(date)
-    nextMonth.setMonth(nextMonth.getMonth() + 1)
-    
-    for (let i = 0; i < nextMonthDays; i++) {
-      const d = new Date(nextMonth)
-      d.setDate(i + 1)
-      dates.push(d)
-    }
-  }
-  
-  return dates
-})
+  } else {
+    // 月视图 - 获取本月的所有天
+    date.setDate(1); // 本月第一天
+    const firstDay = date.getDay() || 7; // 本月第一天是星期几
+    date.setDate(date.getDate() - firstDay + 1); // 调整到显示的第一天（可能是上个月的）
 
-// 获取课程数据
-const fetchCourseData = () => {
-  loading.value = true
-  
-  // 计算日期范围
-  const startDate = dateRange.value[0]
-  const endDate = dateRange.value[dateRange.value.length - 1]
-  
-  // 格式化日期为 YYYY-MM-DD
-  const formatDate = (date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+    // 6行7列的日历
+    for (let i = 0; i < 42; i++) {
+      dates.push(new Date(date));
+      date.setDate(date.getDate() + 1);
+    }
   }
-  
-  post('/api/student/course-schedule', (data) => {
-    courseData.value = data
-    loading.value = false
-  }, {
-    startDate: formatDate(startDate),
-    endDate: formatDate(endDate),
-    viewType: viewType.value
-  }, (message) => {
-    ElMessage.error(message)
-    loading.value = false
-  })
-}
+  return dates;
+});
 
 // 切换视图类型
 const switchViewType = (type) => {
-  viewType.value = type
-  fetchCourseData()
-}
+  viewType.value = type;
+  fetchCourseData();
+};
 
-// 上一周/月
+// 前一周/月
 const goToPrevious = () => {
-  const date = new Date(currentDate.value)
+  const date = new Date(currentDate.value);
   if (viewType.value === 'week') {
-    date.setDate(date.getDate() - 7)
+    date.setDate(date.getDate() - 7);
   } else {
-    date.setMonth(date.getMonth() - 1)
+    date.setMonth(date.getMonth() - 1);
   }
-  currentDate.value = date
-  fetchCourseData()
-}
+  currentDate.value = date;
+  fetchCourseData();
+};
 
 // 下一周/月
 const goToNext = () => {
-  const date = new Date(currentDate.value)
+  const date = new Date(currentDate.value);
   if (viewType.value === 'week') {
-    date.setDate(date.getDate() + 7)
+    date.setDate(date.getDate() + 7);
   } else {
-    date.setMonth(date.getMonth() + 1)
+    date.setMonth(date.getMonth() + 1);
   }
-  currentDate.value = date
-  fetchCourseData()
-}
+  currentDate.value = date;
+  fetchCourseData();
+};
 
-// 返回今天
+// 回到今天
 const goToToday = () => {
-  currentDate.value = new Date()
-  fetchCourseData()
-}
+  currentDate.value = new Date();
+  fetchCourseData();
+};
+
+// 跳转到指定日期
+const goToSelectedDate = () => {
+  if (selectedDate.value) {
+    currentDate.value = new Date(selectedDate.value);
+    fetchCourseData();
+    datePickerVisible.value = false;
+  }
+};
+
+// 获取课程数据
+const fetchCourseData = () => {
+  loading.value = true;
+  // 模拟API请求
+  setTimeout(() => {
+    // 生成模拟数据
+    const mockCourses = [
+      {
+        id: 1,
+        name: '高等数学',
+        studentName: '张三',
+        startTime: '08:00',
+        endTime: '09:40',
+        date: new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), currentDate.value.getDate() - currentDate.value.getDay() + 1),
+        location: '教学楼A-101',
+        type: 1
+      },
+      {
+        id: 2,
+        name: '大学英语',
+        studentName: '李四',
+        startTime: '10:00',
+        endTime: '11:40',
+        date: new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), currentDate.value.getDate() - currentDate.value.getDay() + 2),
+        location: '教学楼B-203',
+        type: 2
+      },
+      {
+        id: 3,
+        name: '物理学',
+        studentName: '王五',
+        startTime: '14:00',
+        endTime: '15:40',
+        date: new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), currentDate.value.getDate() - currentDate.value.getDay() + 3),
+        location: '实验楼C-302',
+        type: 3
+      },
+      {
+        id: 4,
+        name: '计算机编程',
+        studentName: '赵六',
+        startTime: '16:00',
+        endTime: '17:40',
+        date: new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), currentDate.value.getDate() - currentDate.value.getDay() + 4),
+        location: '计算机楼D-401',
+        type: 4
+      }
+    ];
+    courses.value = mockCourses;
+    loading.value = false;
+  }, 500);
+};
 
 // 获取指定日期的课程
 const getCoursesForDate = (date) => {
-  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  return courseData.value.filter(course => course.date === dateStr)
-}
+  return courses.value.filter(course => 
+    course.date.getDate() === date.getDate() && 
+    course.date.getMonth() === date.getMonth() && 
+    course.date.getFullYear() === date.getFullYear()
+  );
+};
 
-// 判断日期是否是当前月份
+// 判断是否是当前月
 const isCurrentMonth = (date) => {
-  return date.getMonth() === currentDate.value.getMonth()
-}
+  return date.getMonth() === currentDate.value.getMonth();
+};
 
-// 判断日期是否是今天
+// 判断是否是今天
 const isToday = (date) => {
   const today = new Date()
   return date.getDate() === today.getDate() && 
@@ -177,17 +170,7 @@ const isToday = (date) => {
 
 // 查看课程详情
 const viewCourseDetail = (course) => {
-  // 这里可以实现查看课程详情的逻辑，比如打开对话框显示详情
-  ElMessage.info(`查看课程：${course.name}，教师：${course.teacher}`)
-}
-
-// 跳转到指定日期
-const goToSelectedDate = () => {
-  if (selectedDate.value) {
-    currentDate.value = new Date(selectedDate.value)
-    fetchCourseData()
-    datePickerVisible.value = false
-  }
+  ElMessage.info(`查看课程：${course.name}，学生：${course.studentName}`)
 }
 
 onMounted(() => {
@@ -201,7 +184,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <div class="title-section">
-            <div class="title">课程表</div>
+            <div class="title">教师课程表</div>
             <div class="today-date">
               <el-tag type="info" effect="plain" size="large">
                 今天: {{ todayDateString }}
@@ -272,9 +255,12 @@ onMounted(() => {
               <div v-for="course in getCoursesForDate(date)" :key="course.id" 
                    class="course-item" :class="`course-type-${course.type}`"
                    @click="viewCourseDetail(course)">
-                <div class="course-time">{{ course.startTime }} - {{ course.endTime }}</div>
+                <div class="course-time">
+                  <el-icon><Clock /></el-icon>
+                  {{ course.startTime }} - {{ course.endTime }}
+                </div>
                 <div class="course-name">{{ course.name }}</div>
-                <div class="course-teacher">{{ course.teacher }}</div>
+                <div class="course-student">学生：{{ course.studentName }}</div>
                 <div class="course-location">{{ course.location }}</div>
               </div>
               
@@ -306,7 +292,7 @@ onMounted(() => {
                 <div v-for="course in getCoursesForDate(date)" :key="course.id" 
                      class="course-dot" :class="`course-type-${course.type}`"
                      @click="viewCourseDetail(course)">
-                  {{ course.name }}
+                  {{ course.name }} - {{ course.studentName }}
                 </div>
               </div>
             </div>
@@ -463,12 +449,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   margin-bottom: 8px;
-}
-
-.course-time::before {
-  content: '⏰';
-  margin-right: 5px;
-  font-size: 14px;
+  gap: 5px;
 }
 
 .course-name {
@@ -478,7 +459,7 @@ onMounted(() => {
   color: #303133;
 }
 
-.course-teacher, .course-location {
+.course-student, .course-location {
   font-size: 13px;
   color: #606266;
   margin-top: 6px;
@@ -486,8 +467,8 @@ onMounted(() => {
   align-items: center;
 }
 
-.course-teacher::before {
-  content: '👨‍🏫';
+.course-student::before {
+  content: '👨‍🎓';
   margin-right: 5px;
 }
 
@@ -654,4 +635,4 @@ onMounted(() => {
   stroke: #409eff;
   stroke-width: 4;
 }
-</style>
+</style> 

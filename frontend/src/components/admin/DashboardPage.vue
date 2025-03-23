@@ -3,7 +3,13 @@ import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 
 onMounted(() => {
-  ElMessage.success('欢迎来到管理员系统');
+  // 检查是否是首次登录
+  const justLoggedIn = sessionStorage.getItem('justLoggedIn');
+  if (justLoggedIn === 'true') {
+    ElMessage.success('欢迎来到管理员系统');
+    // 清除登录标记，防止再次显示
+    sessionStorage.removeItem('justLoggedIn');
+  }
 });
 </script>
 

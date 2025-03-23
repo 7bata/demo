@@ -2,10 +2,52 @@
   import {get} from "@/net/index.js";
   import {ElMessage} from "element-plus";
   import router from "@/router/index.js";
+  import { ref, onMounted, computed } from 'vue';
+  import { 
+    Calendar, 
+    HomeFilled, 
+    User, 
+    Setting, 
+    Document
+  } from '@element-plus/icons-vue';
+
+  const userRole = ref('');
+  
+  onMounted(() => {
+    // 获取用户角色
+    userRole.value = localStorage.getItem('userRole') || '';
+  });
+  
+  // 根据角色计算显示的菜单项
+  const menuItems = computed(() => {
+    if (userRole.value === 'admin') {
+      return [
+        { path: '/index/admin/dashboard', icon: HomeFilled, label: '管理控制台' },
+        { path: '/index/admin/user-management', icon: User, label: '用户管理' }
+      ];
+    } else if (userRole.value === 'teacher') {
+      return [
+        { path: '/index/teacher/dashboard', icon: HomeFilled, label: '教师工作台' },
+        { path: '/index/teacher/course-management', icon: Document, label: '课程管理' },
+        { path: '/index/teacher/course-schedule', icon: Calendar, label: '课程表' }
+      ];
+    } else {
+      // 默认为学生角色
+      return [
+        { path: '/index/student/dashboard', icon: HomeFilled, label: '学生主页' },
+        { path: '/index/student/course-hours', icon: Calendar, label: '课时统计' },
+        { path: '/index/student/course-schedule', icon: Calendar, label: '课程表' }
+      ];
+    }
+  });
 
   const logout = () => {
     get('api/auth/logout', (message) => {
       ElMessage.success(message);
+      // 清除存储的角色信息
+      localStorage.removeItem('userRole');
+      // 清除登录标记，确保下次登录会显示欢迎信息
+      sessionStorage.removeItem('justLoggedIn');
       router.push('/');
     })
   }
@@ -14,7 +56,7 @@
 <template>
   <div class="index-container">
     <div class="header">
-      <div class="welcome-text">欢迎来到Osmosis管理后台测试页面</div>
+      <div class="welcome-text">欢迎来到Osmosis管理后台</div>
       <div class="logout-btn">
         <el-button @click="logout()" type="danger" plain>退出登录</el-button>
       </div>
@@ -26,13 +68,9 @@
         mode="horizontal" 
         :router="true" 
         :default-active="$route.path">
-        <el-menu-item index="/index/student/course-hours">
-          <el-icon><Calendar /></el-icon>
-          <span>课时统计</span>
-        </el-menu-item>
-        <el-menu-item index="/index/student/course-schedule">
-          <el-icon><Calendar /></el-icon>
-          <span>课程表</span>
+        <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
+          <el-icon><component :is="item.icon" /></el-icon>
+          <span>{{ item.label }}</span>
         </el-menu-item>
       </el-menu>
     </div>

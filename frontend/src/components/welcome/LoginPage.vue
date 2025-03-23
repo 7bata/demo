@@ -32,7 +32,7 @@ const navigateByRole = (role) => {
       router.push('/index/teacher/dashboard')
       break
     case 'student':
-      router.push('/index/student/course-hours')
+      router.push('/index/student/dashboard')
       break
     default:
       router.push('/index') // 默认页面
@@ -51,13 +51,13 @@ const login = () => {
       localStorage.removeItem('rememberedUsername')
     }
     
-    post('/api/auth/login', (message) => {
-      ElMessage.success(message)
-      
+    post('/api/auth/login', () => {
       // 登录成功后获取用户实际角色
       get('/api/auth/check-role', (role) => {
         // 存储用户角色
         localStorage.setItem('userRole', role)
+        // 设置一个标记，表示用户刚刚登录，用于显示欢迎信息
+        sessionStorage.setItem('justLoggedIn', 'true')
         // 根据角色跳转
         navigateByRole(role)
       }, () => {

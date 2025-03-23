@@ -32,11 +32,29 @@ const router = createRouter({
           children: [
               {
                   path: '',
-                  redirect: '/index/student/course-hours'
+                  redirect: to => {
+                      const userRole = localStorage.getItem('userRole')
+                      switch(userRole) {
+                          case 'admin':
+                              return '/index/admin/dashboard'
+                          case 'teacher':
+                              return '/index/teacher/dashboard'
+                          case 'student':
+                              return '/index/student/dashboard'
+                          default:
+                              return '/index/student/dashboard'
+                      }
+                  }
               },
               {
                   path: 'student',
                   children: [
+                      {
+                          path: 'dashboard',
+                          name: 'student-dashboard',
+                          component: () => import('@/components/student/DashboardPage.vue'),
+                          meta: { requiresAuth: true, role: 'student' }
+                      },
                       {
                           path: 'course-hours',
                           name: 'student-course-hours',
@@ -64,6 +82,18 @@ const router = createRouter({
                           path: 'course-management',
                           name: 'teacher-course-management',
                           component: () => import('@/components/teacher/CourseManagementPage.vue'),
+                          meta: { requiresAuth: true, role: 'teacher' }
+                      },
+                      {
+                          path: 'course-schedule',
+                          name: 'teacher-course-schedule',
+                          component: () => import('@/components/teacher/CourseSchedulePage.vue'),
+                          meta: { requiresAuth: true, role: 'teacher' }
+                      },
+                      {
+                          path: 'student-course-detail',
+                          name: 'student-course-detail',
+                          component: () => import('@/components/teacher/StudentCourseDetailPage.vue'),
                           meta: { requiresAuth: true, role: 'teacher' }
                       }
                   ]
@@ -104,33 +134,32 @@ router.beforeEach((to, from, next) => {
       // 检查路由角色需求
       const requiredRole = to.matched.find(record => record.meta.role)?.meta.role
       
-      // 如果没有特定角色要求或是管理员，则允许访问
-      if (!requiredRole || userRole === 'admin') {
-        next()
-      } 
-      // 如果是教师且访问的是教师或学生路由，允许访问
-      else if (userRole === 'teacher' && (requiredRole === 'teacher' || requiredRole === 'student')) {
-        next()
-      }
-      // 如果是学生且访问的是学生路由，允许访问
-      else if (userRole === 'student' && requiredRole === 'student') {
-        next()
-      }
-      // 其他情况，重定向到对应角色的默认页面
-      else {
-        switch (userRole) {
-          case 'admin':
-            next({ path: '/index/admin/dashboard' })
-            break
-          case 'teacher':
-            next({ path: '/index/teacher/dashboard' })
-            break
-          case 'student':
-            next({ path: '/index/student/course-hours' })
-            break
-          default:
-            next({ path: '/' })
+      // 严格的角色控制，确保每个角色只能访问自己的路由
+      if (requiredRole) {
+        if (
+          (requiredRole === 'admin' && userRole === 'admin') ||
+          (requiredRole === 'teacher' && userRole === 'teacher') ||
+          (requiredRole === 'student' && userRole === 'student')
+        ) {
+          next()
+        } else {
+          // 如果角色不匹配，重定向到对应角色的默认页面
+          switch (userRole) {
+            case 'admin':
+              next({ path: '/index/admin/dashboard' })
+              break
+            case 'teacher':
+              next({ path: '/index/teacher/dashboard' })
+              break
+            case 'student':
+              next({ path: '/index/student/dashboard' })
+              break
+            default:
+              next({ path: '/' })
+          }
         }
+      } else {
+        next()
       }
     }
   } else {
