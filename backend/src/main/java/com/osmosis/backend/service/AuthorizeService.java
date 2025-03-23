@@ -23,10 +23,17 @@ public class AuthorizeService implements UserDetailsService {
         Account account = mapper.findByUsernameOrEmail(username);
         if (account == null)
             throw new BadCredentialsException("用户名或密码错误");
+        
+        // 获取用户角色，如果为空则默认为student
+        String role = account.getRole();
+        if(role == null || role.isEmpty()) {
+            role = "student";
+        }
+        
         return User
                 .withUsername(account.getUsername())
                 .password(account.getPassword())
-                .roles("user")
+                .roles(role)
                 .build();
     }
 }

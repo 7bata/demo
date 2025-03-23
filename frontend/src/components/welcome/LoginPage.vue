@@ -1,6 +1,6 @@
 <script setup>
 import {Lock, User} from "@element-plus/icons-vue";
-import {post} from "@/net";
+import {post, get} from "@/net";
 import {ElMessage} from "element-plus";
 import router from "@/router";
 import {reactive, onMounted} from "vue";
@@ -22,6 +22,23 @@ onMounted(() => {
   }
 })
 
+// 根据角色跳转到不同页面
+const navigateByRole = (role) => {
+  switch(role) {
+    case 'admin':
+      router.push('/index/admin/dashboard')
+      break
+    case 'teacher':
+      router.push('/index/teacher/dashboard')
+      break
+    case 'student':
+      router.push('/index/student/course-hours')
+      break
+    default:
+      router.push('/index') // 默认页面
+  }
+}
+
 const login = () => {
   if (!form.username || !form.password) {
     ElMessage.warning('用户名或密码不能为空！')
@@ -36,7 +53,18 @@ const login = () => {
     
     post('/api/auth/login', (message) => {
       ElMessage.success(message)
-      router.push('/index')
+      
+      // 登录成功后获取用户实际角色
+      get('/api/auth/check-role', (role) => {
+        // 存储用户角色
+        localStorage.setItem('userRole', role)
+        // 根据角色跳转
+        navigateByRole(role)
+      }, () => {
+        // 如果获取角色失败，跳转到默认页面
+        router.push('/index')
+      })
+      
     },{
           username: form.username,
           password: form.password,

@@ -9,6 +9,7 @@ public class Account {
     String email;
     String username;
     String password;
+    String role;
 
     public int getId() {
         return id;
@@ -24,5 +25,9 @@ public class Account {
 
     public String getPassword() {
         return password;
+    }
+    
+    public String getRole() {
+        return role;
     }
 }

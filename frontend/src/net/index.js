@@ -24,7 +24,7 @@ function post(url, success, data, failure = defaultFailure, error = defaultError
 }
 //封装get请求
 function get(url, success, failure = defaultFailure, error = defaultError){
-    axios.post(url, {
+    axios.get(url, {
         withCredentials: true//是否携带cookie
     }).then(({data}) => {
         if(data.success){
