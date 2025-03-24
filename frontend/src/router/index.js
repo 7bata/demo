@@ -109,8 +109,14 @@ const router = createRouter({
                       },
                       {
                           path: 'user-management',
-                          name: 'admin-user-management',
+                          name: 'user-management',
                           component: () => import('@/components/admin/UserManagementPage.vue'),
+                          meta: { requiresAuth: true, role: 'admin' }
+                      },
+                      {
+                          path: 'course-hours-management',
+                          name: 'course-hours-management',
+                          component: () => import('@/components/admin/CourseHoursManagementPage.vue'),
                           meta: { requiresAuth: true, role: 'admin' }
                       }
                   ]

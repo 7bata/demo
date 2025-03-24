@@ -22,8 +22,9 @@
   const menuItems = computed(() => {
     if (userRole.value === 'admin') {
       return [
-        { path: '/index/admin/dashboard', icon: HomeFilled, label: '管理控制台' },
-        { path: '/index/admin/user-management', icon: User, label: '用户管理' }
+        { path: '/index/admin/dashboard', icon: HomeFilled, label: '首页' },
+        { path: '/index/admin/user-management', icon: User, label: '用户管理' },
+        { path: '/index/admin/course-hours-management', icon: Calendar, label: '课时管理' }
       ];
     } else if (userRole.value === 'teacher') {
       return [
