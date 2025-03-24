@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElDialog, ElForm, ElFormItem, ElInput, ElButton } from 'element-plus';
+import { ElMessage, ElDialog, ElForm, ElFormItem, ElInput, ElButton, ElRadioGroup, ElRadio } from 'element-plus';
 import { ArrowLeft, Calendar, Document, Edit } from '@element-plus/icons-vue';
 
 const route = useRoute();
@@ -20,8 +20,16 @@ const reportForm = reactive({
   content: '',
   progress: '',
   homework: '',
-  nextGoals: ''
+  nextGoals: '',
+  status: 'completed' // 默认状态为已完成
 });
+
+// 课时状态选项
+const statusOptions = [
+  { label: '已完成', value: 'completed' },
+  { label: '未上完', value: 'incomplete' },
+  { label: '缺席', value: 'absent' }
+];
 
 // 获取课程详情和近期课程数据
 onMounted(() => {
@@ -48,12 +56,14 @@ onMounted(() => {
         hours: 2,
         topic: '函数极限',
         hasReport: true,
+        status: 'completed',
         report: {
           topic: '函数极限',
           content: '本节课讲解了函数极限的基本概念和计算方法',
           progress: '学生掌握了基本的极限计算',
           homework: '习题册第三章1-10题',
-          nextGoals: '下节课继续讲解函数连续性'
+          nextGoals: '下节课继续讲解函数连续性',
+          status: 'completed'
         }
       },
       {
@@ -64,12 +74,14 @@ onMounted(() => {
         hours: 2,
         topic: '函数连续性',
         hasReport: true,
+        status: 'incomplete',
         report: {
           topic: '函数连续性',
           content: '讲解了函数连续性的定义和判断方法',
           progress: '学生理解了连续函数的性质',
           homework: '习题册第三章11-20题',
-          nextGoals: '下节课开始微分学的内容'
+          nextGoals: '下节课开始微分学的内容',
+          status: 'incomplete'
         }
       },
       {
@@ -79,7 +91,8 @@ onMounted(() => {
         endTime: '15:40',
         hours: 2,
         topic: '导数概念',
-        hasReport: false
+        hasReport: false,
+        status: 'absent'
       }
     ];
     
@@ -113,12 +126,14 @@ const editReport = (course) => {
     reportForm.progress = course.report.progress;
     reportForm.homework = course.report.homework;
     reportForm.nextGoals = course.report.nextGoals;
+    reportForm.status = course.report.status || course.status || 'completed';
   } else {
     reportForm.topic = course.topic || '';
     reportForm.content = '';
     reportForm.progress = '';
     reportForm.homework = '';
     reportForm.nextGoals = '';
+    reportForm.status = course.status || 'completed';
   }
   
   dialogVisible.value = true;
@@ -131,7 +146,7 @@ const saveReport = () => {
     return;
   }
   
-  if (!reportForm.content.trim()) {
+  if (!reportForm.content.trim() && reportForm.status === 'completed') {
     ElMessage.warning('课程内容不能为空');
     return;
   }
@@ -139,18 +154,54 @@ const saveReport = () => {
   // 更新报告数据
   if (currentReport.value) {
     currentReport.value.topic = reportForm.topic;
-    currentReport.value.hasReport = true;
-    currentReport.value.report = {
-      topic: reportForm.topic,
-      content: reportForm.content,
-      progress: reportForm.progress,
-      homework: reportForm.homework,
-      nextGoals: reportForm.nextGoals
-    };
+    currentReport.value.status = reportForm.status;
+    currentReport.value.hasReport = reportForm.status !== 'absent';
+    
+    if (reportForm.status !== 'absent') {
+      currentReport.value.report = {
+        topic: reportForm.topic,
+        content: reportForm.content,
+        progress: reportForm.progress,
+        homework: reportForm.homework,
+        nextGoals: reportForm.nextGoals,
+        status: reportForm.status
+      };
+    } else {
+      // 如果是缺席状态，清空报告内容
+      currentReport.value.report = null;
+    }
   }
   
   ElMessage.success('课时报告保存成功');
   dialogVisible.value = false;
+};
+
+// 获取课时状态标签类型
+const getStatusTagType = (status) => {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'incomplete':
+      return 'warning';
+    case 'absent':
+      return 'danger';
+    default:
+      return 'info';
+  }
+};
+
+// 获取课时状态显示文本
+const getStatusText = (status) => {
+  switch (status) {
+    case 'completed':
+      return '已完成';
+    case 'incomplete':
+      return '未上完';
+    case 'absent':
+      return '缺席';
+    default:
+      return '未知';
+  }
 };
 </script>
 
@@ -228,6 +279,13 @@ const saveReport = () => {
         </el-table-column>
         <el-table-column prop="hours" label="课时" width="80" />
         <el-table-column prop="topic" label="课程主题" />
+        <el-table-column label="状态" width="100">
+          <template #default="scope">
+            <el-tag :type="getStatusTagType(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="课时报告" width="120">
           <template #default="scope">
             <el-tag :type="scope.row.hasReport ? 'success' : 'info'">
@@ -256,6 +314,19 @@ const saveReport = () => {
       width="60%"
     >
       <el-form :model="reportForm" label-width="120px">
+        <el-form-item label="课程状态" required>
+          <el-radio-group v-model="reportForm.status" class="status-radio-group">
+            <el-radio
+              v-for="option in statusOptions"
+              :key="option.value"
+              :label="option.value"
+              border
+            >
+              {{ option.label }}
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
+        
         <el-form-item label="课程主题" required>
           <el-input 
             v-model="reportForm.topic" 
@@ -263,37 +334,43 @@ const saveReport = () => {
           />
         </el-form-item>
         
-        <el-form-item label="课程内容" required>
-          <el-input 
-            v-model="reportForm.content" 
-            type="textarea" 
-            rows="4"
-            placeholder="请输入本次课程的主要内容"
-          />
-        </el-form-item>
+        <template v-if="reportForm.status !== 'absent'">
+          <el-form-item label="课程内容" :required="reportForm.status === 'completed'">
+            <el-input 
+              v-model="reportForm.content" 
+              type="textarea" 
+              rows="4"
+              placeholder="请输入本次课程的主要内容"
+            />
+          </el-form-item>
+          
+          <el-form-item label="学习进度">
+            <el-input 
+              v-model="reportForm.progress" 
+              type="textarea" 
+              rows="3"
+              placeholder="请描述学生的学习进度和掌握情况"
+            />
+          </el-form-item>
+          
+          <el-form-item label="作业布置">
+            <el-input 
+              v-model="reportForm.homework" 
+              placeholder="请输入布置的作业"
+            />
+          </el-form-item>
+          
+          <el-form-item label="下次课目标">
+            <el-input 
+              v-model="reportForm.nextGoals" 
+              placeholder="请输入下次课的学习目标"
+            />
+          </el-form-item>
+        </template>
         
-        <el-form-item label="学习进度">
-          <el-input 
-            v-model="reportForm.progress" 
-            type="textarea" 
-            rows="3"
-            placeholder="请描述学生的学习进度和掌握情况"
-          />
-        </el-form-item>
-        
-        <el-form-item label="作业布置">
-          <el-input 
-            v-model="reportForm.homework" 
-            placeholder="请输入布置的作业"
-          />
-        </el-form-item>
-        
-        <el-form-item label="下次课目标">
-          <el-input 
-            v-model="reportForm.nextGoals" 
-            placeholder="请输入下次课的学习目标"
-          />
-        </el-form-item>
+        <div v-else class="absent-notice">
+          <p>学生缺席，无需填写课程内容和作业</p>
+        </div>
       </el-form>
       
       <template #footer>
@@ -371,5 +448,23 @@ const saveReport = () => {
 .summary-item .value {
   color: #409EFF;
   font-size: 16px;
+}
+
+.status-radio-group {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.status-radio-group .el-radio {
+  margin-right: 20px;
+}
+
+.absent-notice {
+  background-color: #fef0f0;
+  color: #f56c6c;
+  padding: 15px;
+  border-radius: 4px;
+  margin: 20px 0;
+  text-align: center;
 }
 </style> 

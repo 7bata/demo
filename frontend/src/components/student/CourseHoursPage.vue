@@ -92,7 +92,8 @@ const fetchCourseHistoryRecords = (courseId) => {
         subject: currentCourse.value.name,
         teacher: currentCourse.value.teacher,
         hours: 2,
-        hasReport: true
+        hasReport: true,
+        status: 'completed'
       },
       {
         id: 2,
@@ -102,7 +103,8 @@ const fetchCourseHistoryRecords = (courseId) => {
         subject: currentCourse.value.name,
         teacher: currentCourse.value.teacher,
         hours: 2,
-        hasReport: true
+        hasReport: true,
+        status: 'incomplete'
       },
       {
         id: 3,
@@ -112,11 +114,40 @@ const fetchCourseHistoryRecords = (courseId) => {
         subject: currentCourse.value.name,
         teacher: currentCourse.value.teacher,
         hours: 2,
-        hasReport: false
+        hasReport: false,
+        status: 'absent'
       }
     ]
     loading.value = false
   }, 500)
+}
+
+// 获取课时状态标签类型
+const getStatusTagType = (status) => {
+  switch (status) {
+    case 'completed':
+      return 'success'
+    case 'incomplete':
+      return 'warning'
+    case 'absent':
+      return 'danger'
+    default:
+      return 'info'
+  }
+}
+
+// 获取课时状态显示文本
+const getStatusText = (status) => {
+  switch (status) {
+    case 'completed':
+      return '已完成'
+    case 'incomplete':
+      return '未上完'
+    case 'absent':
+      return '缺席'
+    default:
+      return '未知'
+  }
 }
 
 // 返回课程列表
@@ -314,9 +345,18 @@ onMounted(() => {
           <el-table-column
               prop="hours"
               label="课时数"
-              width="100">
+              width="80">
             <template #default="scope">
               {{ scope.row.hours }}
+            </template>
+          </el-table-column>
+          <el-table-column
+              label="状态"
+              width="100">
+            <template #default="scope">
+              <el-tag :type="getStatusTagType(scope.row.status)">
+                {{ getStatusText(scope.row.status) }}
+              </el-tag>
             </template>
           </el-table-column>
           <el-table-column
@@ -324,7 +364,7 @@ onMounted(() => {
             <template #default="scope">
               <el-button
                   :type="scope.row.hasReport ? 'success' : 'info'"
-                  :disabled="!scope.row.hasReport"
+                  :disabled="!scope.row.hasReport || scope.row.status === 'absent'"
                   link
                   @click="$router.push(`/index/student/course-report/${scope.row.id}`)">
                 {{ scope.row.hasReport ? '查看报告' : '暂无报告' }}
