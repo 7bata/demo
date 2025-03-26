@@ -95,27 +95,27 @@ const dateRange = computed(() => {
 const fetchCourseData = () => {
   loading.value = true
   
-  // 计算日期范围
-  const startDate = dateRange.value[0]
-  const endDate = dateRange.value[dateRange.value.length - 1]
+  // 从sessionStorage获取学生ID
+  const userInfo = JSON.parse(sessionStorage.getItem('userInfo') || '{}')
+  const studentId = userInfo.id
   
-  // 格式化日期为 YYYY-MM-DD
-  const formatDate = (date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+  if (!studentId) {
+    ElMessage.error('未找到学生信息，请重新登录')
+    loading.value = false
+    return
   }
   
+  console.log("获取学生课程表，学生ID:", studentId)
+  
   post('/api/student/course-schedule', (data) => {
+    console.log("获取课程表成功:", data)
     courseData.value = data
     loading.value = false
   }, {
-    startDate: formatDate(startDate),
-    endDate: formatDate(endDate),
-    viewType: viewType.value
+    studentId: studentId
   }, (message) => {
-    ElMessage.error(message)
+    console.error("获取课程表失败:", message)
+    ElMessage.error('获取课程表失败: ' + message)
     loading.value = false
   })
 }

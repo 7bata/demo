@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { post } from '@/net'
+import { post, get } from '@/net'
 import { ElMessage } from 'element-plus'
 import { Document, ArrowRight, Clock } from '@element-plus/icons-vue'
 
@@ -10,8 +10,8 @@ const courseHoursStats = ref({
   consumedHours: 0
 })
 
-// 课程分类数据
-const courseCategories = ref([])
+// 课程列表数据
+const courseList = ref([])
 const loading = ref(false)
 
 // 历史记录详情数据
@@ -19,61 +19,93 @@ const historyRecords = ref([])
 const detailsVisible = ref(false)
 const currentCourse = ref({})
 
+// 获取用户ID
+const getUserId = () => {
+  const userInfo = JSON.parse(sessionStorage.getItem('userInfo') || '{}')
+  return userInfo.id
+}
+
 // 获取课时统计数据
 const fetchCourseHoursStats = () => {
+  const studentId = getUserId()
+  if (!studentId) {
+    ElMessage.error('未找到学生信息，请重新登录')
+    return
+  }
+  
+  console.log("获取学生课时统计，学生ID:", studentId)
+  
   post('/api/student/course-hours/stats', (data) => {
+    console.log("获取课时统计成功:", data)
     courseHoursStats.value = data
-  }, {}, (message) => {
-    ElMessage.error(message)
+  }, {
+    studentId: studentId
+  }, (message) => {
+    console.error("获取课时统计失败:", message)
+    ElMessage.error('获取课时统计失败: ' + message)
   })
 }
 
-// 获取课程分类数据
-const fetchCourseCategories = () => {
+// 获取课程列表
+const fetchCourseList = () => {
   loading.value = true
-  // 模拟API请求
-  setTimeout(() => {
-    courseCategories.value = [
-      {
-        id: 1,
-        name: '高等数学',
-        teacher: '张教授',
-        totalHours: 40,
-        consumedHours: 28,
-        remainingHours: 12
-      },
-      {
-        id: 2,
-        name: '大学英语',
-        teacher: '李教授',
-        totalHours: 30,
-        consumedHours: 15,
-        remainingHours: 15
-      },
-      {
-        id: 3,
-        name: '物理学',
-        teacher: '王教授',
-        totalHours: 20,
-        consumedHours: 20,
-        remainingHours: 0
-      },
-      {
-        id: 4,
-        name: '计算机编程',
-        teacher: '赵教授',
-        totalHours: 60,
-        consumedHours: 42,
-        remainingHours: 18
-      }
-    ]
+  const studentId = getUserId()
+  if (!studentId) {
+    ElMessage.error('未找到学生信息，请重新登录')
     loading.value = false
-  }, 500)
+    return
+  }
+  
+  console.log("获取学生课程列表，学生ID:", studentId)
+  
+  // 首先获取课程基本信息
+  get(`/api/student/courses?studentId=${studentId}`, (courses) => {
+    console.log("获取课程列表成功:", courses)
+    
+    // 如果课程没有课时信息，需要补充
+    const studentCoursesInfo = []
+    let fetchCounter = 0
+    const totalCourses = courses.length
+    
+    if (totalCourses === 0) {
+      courseList.value = []
+      loading.value = false
+      return
+    }
+    
+    // 对每个课程获取选课信息
+    courses.forEach(course => {
+      // 创建一个带有默认值的课程对象
+      const courseWithHours = {
+        ...course,
+        totalHours: 0,
+        completedHours: 0
+      }
+      
+      studentCoursesInfo.push(courseWithHours)
+      fetchCounter++
+      
+      // 如果所有课程都处理完了，更新列表
+      if (fetchCounter === totalCourses) {
+        courseList.value = studentCoursesInfo
+        loading.value = false
+      }
+    })
+  }, (message) => {
+    console.error("获取课程列表失败:", message)
+    ElMessage.error('获取课程列表失败: ' + message)
+    loading.value = false
+  })
 }
 
 // 查看课程详情
 const viewCourseDetails = (course) => {
-  currentCourse.value = course
+  // 设置当前课程
+  currentCourse.value = {
+    ...course,
+    remainingHours: course.totalHours - course.completedHours
+  }
+  
   fetchCourseHistoryRecords(course.id)
   detailsVisible.value = true
 }
@@ -81,45 +113,20 @@ const viewCourseDetails = (course) => {
 // 获取课程历史记录
 const fetchCourseHistoryRecords = (courseId) => {
   loading.value = true
-  // 模拟API请求
-  setTimeout(() => {
-    historyRecords.value = [
-      {
-        id: 1,
-        date: '2023-10-15',
-        startTime: '08:00',
-        endTime: '09:40',
-        subject: currentCourse.value.name,
-        teacher: currentCourse.value.teacher,
-        hours: 2,
-        hasReport: true,
-        status: 'completed'
-      },
-      {
-        id: 2,
-        date: '2023-10-18',
-        startTime: '10:00',
-        endTime: '11:40',
-        subject: currentCourse.value.name,
-        teacher: currentCourse.value.teacher,
-        hours: 2,
-        hasReport: true,
-        status: 'incomplete'
-      },
-      {
-        id: 3,
-        date: '2023-10-22',
-        startTime: '14:00',
-        endTime: '15:40',
-        subject: currentCourse.value.name,
-        teacher: currentCourse.value.teacher,
-        hours: 2,
-        hasReport: false,
-        status: 'absent'
-      }
-    ]
+  const studentId = getUserId()
+  if (!studentId) {
+    ElMessage.error('未找到学生信息，请重新登录')
     loading.value = false
-  }, 500)
+    return
+  }
+  
+  get(`/api/student/course-hours/${courseId}?studentId=${studentId}`, (data) => {
+    historyRecords.value = data
+    loading.value = false
+  }, (message) => {
+    ElMessage.error('获取课时记录失败: ' + message)
+    loading.value = false
+  })
 }
 
 // 获取课时状态标签类型
@@ -157,27 +164,20 @@ const backToCourseList = () => {
 
 // 总课时统计
 const totalStats = computed(() => {
-  let total = 0
-  let consumed = 0
-  let remaining = 0
-  
-  courseCategories.value.forEach(course => {
-    total += course.totalHours
-    consumed += course.consumedHours
-    remaining += course.remainingHours
-  })
-  
-  return {
-    total,
-    consumed,
-    remaining
+  if (courseHoursStats.value) {
+    return {
+      total: courseHoursStats.value.remainingHours + courseHoursStats.value.consumedHours,
+      consumed: courseHoursStats.value.consumedHours,
+      remaining: courseHoursStats.value.remainingHours
+    }
   }
+  return { total: 0, consumed: 0, remaining: 0 }
 })
 
 // 页面加载时获取数据
 onMounted(() => {
   fetchCourseHoursStats()
-  fetchCourseCategories()
+  fetchCourseList()
 })
 </script>
 
@@ -232,16 +232,16 @@ onMounted(() => {
       </template>
       <el-table
           v-loading="loading"
-          :data="courseCategories"
+          :data="courseList"
           style="width: 100%"
           border>
         <el-table-column
-            prop="name"
+            prop="courseName"
             label="课程名称"
             width="180">
         </el-table-column>
         <el-table-column
-            prop="teacher"
+            prop="teacherName"
             label="教师名称"
             width="150">
         </el-table-column>
@@ -249,24 +249,17 @@ onMounted(() => {
             prop="totalHours"
             label="总课时"
             width="120">
-          <template #default="scope">
-            {{ scope.row.totalHours }}
-          </template>
         </el-table-column>
         <el-table-column
-            prop="consumedHours"
+            prop="completedHours"
             label="已消耗"
             width="120">
-          <template #default="scope">
-            {{ scope.row.consumedHours }}
-          </template>
         </el-table-column>
         <el-table-column
-            prop="remainingHours"
             label="剩余"
             width="120">
           <template #default="scope">
-            {{ scope.row.remainingHours }}
+            {{ scope.row.totalHours - scope.row.completedHours }}
           </template>
         </el-table-column>
         <el-table-column

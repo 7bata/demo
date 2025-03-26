@@ -7,6 +7,6 @@ import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface UserMapper {
-    @Select("select * from db_manage where username = #{text} or email = #{text}")
+    @Select("select * from users where username = #{text} or email = #{text}")
     Account findByUsernameOrEmail(String text);
 }

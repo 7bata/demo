@@ -52,17 +52,29 @@ const login = () => {
     }
     
     post('/api/auth/login', () => {
-      // 登录成功后获取用户实际角色
-      get('/api/auth/check-role', (role) => {
+      // 登录成功后获取用户信息
+      get('/api/auth/current-user', (data) => {
+        // 存储用户信息到sessionStorage
+        sessionStorage.setItem('userInfo', JSON.stringify(data))
+        
         // 存储用户角色
-        localStorage.setItem('userRole', role)
+        localStorage.setItem('userRole', data.role)
+        
         // 设置一个标记，表示用户刚刚登录，用于显示欢迎信息
         sessionStorage.setItem('justLoggedIn', 'true')
+        
         // 根据角色跳转
-        navigateByRole(role)
+        navigateByRole(data.role)
       }, () => {
-        // 如果获取角色失败，跳转到默认页面
-        router.push('/index')
+        // 如果获取用户信息失败，尝试获取角色
+        get('/api/auth/check-role', (role) => {
+          localStorage.setItem('userRole', role)
+          sessionStorage.setItem('justLoggedIn', 'true')
+          navigateByRole(role)
+        }, () => {
+          // 如果都失败，跳转到默认页面
+          router.push('/index')
+        })
       })
       
     },{
