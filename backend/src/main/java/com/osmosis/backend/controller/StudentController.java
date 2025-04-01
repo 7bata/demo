@@ -5,7 +5,9 @@ import com.osmosis.backend.service.StudentService;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalTime;
 
 @RestController
 @RequestMapping("/api/student")
@@ -83,13 +85,32 @@ public class StudentController {
      * 获取学生特定课程的课时记录
      */
     @GetMapping("/course-hours/{courseId}")
-    public RestBean<List<ClassHourRecord>> getCoursesHourRecords(
+    public RestBean<List<CourseHourHistory>> getCoursesHourRecords(
             @RequestParam Integer studentId, 
             @PathVariable Integer courseId) {
         try {
             System.out.println("获取学生课时记录: studentId=" + studentId + ", courseId=" + courseId);
             List<ClassHourRecord> records = studentService.getStudentCourseClassHourRecords(studentId, courseId);
-            return RestBean.success(records);
+            
+            // 转换为CourseHourHistory对象
+            List<CourseHourHistory> historyRecords = new ArrayList<>();
+            for (ClassHourRecord record : records) {
+                CourseHourHistory history = new CourseHourHistory();
+                history.setId(record.getId());
+                history.setDate(record.getClassDate());
+                history.setSubject(record.getCourseName());
+                history.setTeacher(record.getTeacherName());
+                history.setHours(2.0); // 默认2小时
+                history.setReport(record.getContent());
+                history.setStatus(record.getStatus());
+                history.setStartTime(LocalTime.of(8, 0)); // 默认8:00开始
+                history.setEndTime(LocalTime.of(10, 0));  // 默认10:00结束
+                history.setHasReport(record.getContent() != null && !record.getContent().isEmpty());
+                
+                historyRecords.add(history);
+            }
+            
+            return RestBean.success(historyRecords);
         } catch (Exception e) {
             System.err.println("获取课时记录失败: " + e.getMessage());
             e.printStackTrace();

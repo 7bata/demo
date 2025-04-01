@@ -61,36 +61,8 @@ const fetchCourseList = () => {
   // 首先获取课程基本信息
   get(`/api/student/courses?studentId=${studentId}`, (courses) => {
     console.log("获取课程列表成功:", courses)
-    
-    // 如果课程没有课时信息，需要补充
-    const studentCoursesInfo = []
-    let fetchCounter = 0
-    const totalCourses = courses.length
-    
-    if (totalCourses === 0) {
-      courseList.value = []
-      loading.value = false
-      return
-    }
-    
-    // 对每个课程获取选课信息
-    courses.forEach(course => {
-      // 创建一个带有默认值的课程对象
-      const courseWithHours = {
-        ...course,
-        totalHours: 0,
-        completedHours: 0
-      }
-      
-      studentCoursesInfo.push(courseWithHours)
-      fetchCounter++
-      
-      // 如果所有课程都处理完了，更新列表
-      if (fetchCounter === totalCourses) {
-        courseList.value = studentCoursesInfo
-        loading.value = false
-      }
-    })
+    courseList.value = courses
+    loading.value = false
   }, (message) => {
     console.error("获取课程列表失败:", message)
     ElMessage.error('获取课程列表失败: ' + message)
@@ -103,6 +75,7 @@ const viewCourseDetails = (course) => {
   // 设置当前课程
   currentCourse.value = {
     ...course,
+    consumedHours: course.completedHours,
     remainingHours: course.totalHours - course.completedHours
   }
   
@@ -283,7 +256,7 @@ onMounted(() => {
         <el-button @click="backToCourseList" type="primary" plain>
           返回课程列表
         </el-button>
-        <h2>{{ currentCourse.name }} - {{ currentCourse.teacher }}</h2>
+        <h2>{{ currentCourse.courseName }} - {{ currentCourse.teacherName }}</h2>
       </div>
       
       <el-card class="course-stats" shadow="hover">

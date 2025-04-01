@@ -7,6 +7,7 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,7 +28,30 @@ public class StudentServiceImpl implements StudentService {
     
     @Override
     public List<Course> getStudentCourses(Integer studentId) {
-        return courseMapper.findCoursesByStudentId(studentId);
+        try {
+            System.out.println("开始获取学生ID为" + studentId + "的课程列表");
+            List<Course> courses = courseMapper.findCoursesByStudentId(studentId);
+            
+            if (courses == null) {
+                System.out.println("查询结果为null");
+                return new ArrayList<>();
+            }
+            
+            System.out.println("查询到" + courses.size() + "门课程");
+            for (Course course : courses) {
+                System.out.println("课程ID: " + course.getId() 
+                    + ", 课程名: " + course.getCourseName()
+                    + ", 教师: " + course.getTeacherName()
+                    + ", 总课时: " + course.getTotalHours()
+                    + ", 已完成课时: " + course.getCompletedHours());
+            }
+            
+            return courses;
+        } catch (Exception e) {
+            System.err.println("获取学生课程列表失败: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
     
     @Override
@@ -164,16 +188,20 @@ public class StudentServiceImpl implements StudentService {
                     
                     // 安全地解析日期
                     if (record.getClassDate() != null) {
-                        history.setDate(LocalDate.parse(record.getClassDate().toString()));
+                        history.setDate(record.getClassDate());
                     } else {
                         history.setDate(LocalDate.now());
                     }
                     
                     history.setSubject(record.getCourseName());
                     history.setTeacher(record.getTeacherName());
-                    // 假设课时为2小时
+                    // 默认值设置
                     history.setHours(2.0);
                     history.setReport(record.getContent());
+                    history.setStatus(record.getStatus());
+                    history.setStartTime(LocalTime.of(8, 0)); // 默认8:00开始
+                    history.setEndTime(LocalTime.of(10, 0));  // 默认10:00结束
+                    history.setHasReport(record.getContent() != null && !record.getContent().isEmpty());
                     
                     historyRecords.add(history);
                 } catch (Exception e) {

@@ -28,7 +28,9 @@ public interface CourseMapper {
     @Select("SELECT c.id, c.course_name as courseName, c.course_code as courseCode, " +
             "c.description, c.teacher_id as teacherId, " +
             "c.created_at as createdAt, c.updated_at as updatedAt, " +
-            "u.username as teacherName " +
+            "u.username as teacherName, " +
+            "COALESCE(sc.total_hours, 0) as totalHours, " +
+            "COALESCE(sc.completed_hours, 0) as completedHours " +
             "FROM courses c " +
             "JOIN student_courses sc ON c.id = sc.course_id " +
             "LEFT JOIN users u ON c.teacher_id = u.id " +
