@@ -2,29 +2,209 @@
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useRouter } from 'vue-router';
+import { get } from '@/net';
 
 const router = useRouter();
 const courseList = ref([]);
 const loading = ref(true);
 
 onMounted(() => {
-  // 模拟获取课程数据
-  setTimeout(() => {
-    courseList.value = [
-      { id: 1, name: '高等数学', studentName: '张三', status: '进行中', totalHours: 40, completedHours: 28 },
-      { id: 2, name: '大学英语', studentName: '李四', status: '进行中', totalHours: 30, completedHours: 15 },
-      { id: 3, name: '物理学', studentName: '王五', status: '已结束', totalHours: 20, completedHours: 20 },
-      { id: 4, name: '计算机编程', studentName: '赵六', status: '进行中', totalHours: 60, completedHours: 42 }
-    ];
-    loading.value = false;
-  }, 500);
+  fetchCourses();
 });
+
+// 获取教师课程列表
+const fetchCourses = () => {
+  // 从session中获取用户ID
+  const userInfo = JSON.parse(sessionStorage.getItem('userInfo') || '{}');
+  const teacherId = userInfo.id;
+  
+  if (!teacherId) {
+    ElMessage.error('未找到教师信息，请重新登录');
+    loading.value = false;
+    return;
+  }
+  
+  loading.value = true;
+  get(`/api/teacher/courses?teacherId=${teacherId}`, (data) => {
+    console.log("获取课程列表成功:", data);
+    
+    // 检查数据是否嵌套在message中（根据API返回格式调整）
+    const courseData = Array.isArray(data) ? data : (data.message || []);
+    
+    // 处理课程数据
+    courseList.value = [];
+    
+    // 按课程分组
+    const courseGroups = {};
+    courseData.forEach(course => {
+      // 获取正确的ID字段
+      const courseId = course.courseId || course.id;
+      
+      // 如果还没有这个课程ID的组，创建一个
+      if (!courseGroups[courseId]) {
+        courseGroups[courseId] = {
+          id: courseId,
+          name: course.courseName,
+          students: [],
+          totalHours: course.totalHours || 40,
+          completedHours: course.completedHours || 0
+        };
+      }
+      
+      // 添加学生到组
+      const studentId = course.studentId;
+      const studentName = course.studentName;
+      
+      // 排除admin用户和姓名为空的情况
+      if (studentId && studentName && studentName !== 'admin') {
+        // 检查是否已存在相同的学生
+        const existingStudent = courseGroups[courseId].students.find(
+          s => s.id === studentId
+        );
+        
+        if (!existingStudent) {
+          courseGroups[courseId].students.push({
+            id: studentId,
+            name: studentName,
+            completedHours: course.completedHours || 0
+          });
+        }
+      }
+    });
+    
+    // 将分组后的数据转换为列表
+    for (const courseId in courseGroups) {
+      const group = courseGroups[courseId];
+      
+      if (group.students.length > 0) {
+        // 多个学生的情况，为每个学生创建一条记录
+        group.students.forEach(student => {
+          // 获取学生课程完成情况
+          get(`/api/teacher/student-course-records?studentId=${student.id}&courseId=${group.id}`, (hoursData) => {
+            // 处理API响应
+            console.log(`获取学生${student.id}课程${group.id}完成情况:`, hoursData);
+            
+            // 从响应中提取数据
+            let records = [];
+            if (hoursData.success && Array.isArray(hoursData.message)) {
+              records = hoursData.message;
+            } else if (hoursData.success && Array.isArray(hoursData.data)) {
+              records = hoursData.data;
+            } else if (Array.isArray(hoursData)) {
+              records = hoursData;
+            }
+            
+            // 计算已完成课时
+            let completedHours = 0;
+            records.forEach(record => {
+              if (record.status === 'completed') {
+                completedHours += 2; // 假设每节课是2课时
+              }
+            });
+            
+            // 创建或更新课程记录
+            const courseRecord = {
+              id: group.id,
+              name: group.name,
+              studentId: student.id,
+              studentName: student.name,
+              status: '进行中',
+              totalHours: group.totalHours || 40,
+              completedHours: completedHours || student.completedHours || 0
+            };
+            
+            // 添加或更新列表中的记录
+            const existingIndex = courseList.value.findIndex(
+              c => c.id === courseRecord.id && c.studentId === courseRecord.studentId
+            );
+            
+            if (existingIndex >= 0) {
+              courseList.value[existingIndex] = courseRecord;
+            } else {
+              courseList.value.push(courseRecord);
+            }
+          }, (error) => {
+            console.error(`获取学生${student.id}课程${group.id}完成情况失败:`, error);
+            
+            // 如果获取失败，仍使用默认值添加记录
+            courseList.value.push({
+              id: group.id,
+              name: group.name,
+              studentId: student.id,
+              studentName: student.name,
+              status: '进行中',
+              totalHours: group.totalHours || 40,
+              completedHours: 0
+            });
+          });
+        });
+      } else {
+        // 没有学生的课程，尝试获取学生列表
+        get(`/api/teacher/course-students/${group.id}`, (students) => {
+          const studentList = Array.isArray(students) ? students : (students.message || []);
+          
+          // 过滤掉admin用户
+          const filteredStudents = studentList.filter(
+            s => s.studentName && s.studentName !== 'admin' && s.studentId
+          );
+          
+          if (filteredStudents.length > 0) {
+            // 如果找到学生，为每个学生创建记录
+            filteredStudents.forEach(student => {
+              // 检查是否已存在相同的记录
+              const existingCourse = courseList.value.find(
+                c => c.id === group.id && c.studentId === student.studentId
+              );
+              
+              if (!existingCourse) {
+                courseList.value.push({
+                  id: group.id,
+                  name: group.name,
+                  studentId: student.studentId,
+                  studentName: student.studentName,
+                  status: '进行中',
+                  totalHours: group.totalHours || 40,
+                  completedHours: 0
+                });
+              }
+            });
+          } else {
+            console.log(`跳过课程: ${group.name}，因为没有关联的学生`);
+          }
+        }, () => {
+          // 如果API调用失败，不添加此课程
+          console.log(`跳过课程: ${group.name}，因为获取学生列表失败`);
+        });
+      }
+    }
+    
+    console.log("处理后的课程列表:", courseList.value);
+    loading.value = false;
+  }, (message) => {
+    console.error("获取课程列表失败:", message);
+    ElMessage.error('获取课程列表失败: ' + message);
+    loading.value = false;
+  });
+};
 
 // 查看课时信息
 const viewCourseHours = (course) => {
+  console.log("查看课时信息:", course);
+  
+  // 检查是否有学生ID
+  if (!course.studentId) {
+    // 学生ID为空的情况，显示提示
+    ElMessage.warning('此课程没有关联学生，无法查看课时信息');
+    return;
+  }
+  
   router.push({
     path: '/index/teacher/student-course-detail',
-    query: { courseId: course.id, studentName: course.studentName }
+    query: { 
+      courseId: course.id, 
+      studentId: course.studentId,
+      studentName: course.studentName 
+    }
   });
 };
 

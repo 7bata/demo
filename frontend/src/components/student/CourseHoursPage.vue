@@ -72,12 +72,16 @@ const fetchCourseList = () => {
 
 // 查看课程详情
 const viewCourseDetails = (course) => {
+  console.log("课程详情:", course)
+  
   // 设置当前课程
   currentCourse.value = {
     ...course,
     consumedHours: course.completedHours,
     remainingHours: course.totalHours - course.completedHours
   }
+  
+  console.log("当前课程属性:", currentCourse.value)
   
   fetchCourseHistoryRecords(course.id)
   detailsVisible.value = true
@@ -93,10 +97,23 @@ const fetchCourseHistoryRecords = (courseId) => {
     return
   }
   
+  console.log("获取课程历史记录，学生ID:", studentId, "课程ID:", courseId)
+  
   get(`/api/student/course-hours/${courseId}?studentId=${studentId}`, (data) => {
+    console.log("获取课程历史记录成功:", data)
     historyRecords.value = data
+    
+    // 调试信息
+    if (data && data.length > 0) {
+      console.log("首条记录属性:")
+      for (const key in data[0]) {
+        console.log(`${key}: ${data[0][key]}`)
+      }
+    }
+    
     loading.value = false
   }, (message) => {
+    console.error("获取课时记录失败:", message)
     ElMessage.error('获取课时记录失败: ' + message)
     loading.value = false
   })
@@ -297,6 +314,9 @@ onMounted(() => {
               prop="date"
               label="上课日期"
               width="120">
+            <template #default="scope">
+              {{ scope.row.formattedDate || (scope.row.date ? scope.row.date : '未知日期') }}
+            </template>
           </el-table-column>
           <el-table-column
               label="上课时间"

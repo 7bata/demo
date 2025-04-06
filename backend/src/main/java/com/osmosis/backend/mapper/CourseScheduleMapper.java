@@ -30,4 +30,13 @@ public interface CourseScheduleMapper {
             "LEFT JOIN users u ON c.teacher_id = u.id " +
             "WHERE sc.student_id = #{studentId} AND sc.status = 'enrolled'")
     List<CourseSchedule> findSchedulesByStudentId(@Param("studentId") Integer studentId);
+
+    /**
+     * 获取教师的所有课程安排
+     */
+    @Select("SELECT cs.*, c.course_name as courseName, c.course_code as courseCode " +
+            "FROM course_schedules cs " +
+            "JOIN courses c ON cs.course_id = c.id " +
+            "WHERE c.teacher_id = #{teacherId}")
+    List<CourseSchedule> findSchedulesByTeacherId(@Param("teacherId") Integer teacherId);
 } 

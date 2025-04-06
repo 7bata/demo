@@ -55,4 +55,18 @@ public interface StudentCourseMapper {
     StudentCourse findByStudentIdAndCourseId(
             @Param("studentId") Integer studentId, 
             @Param("courseId") Integer courseId);
+
+    /**
+     * 根据教师ID查询所有学生选课信息
+     */
+    @Select("SELECT sc.id, sc.student_id as studentId, sc.course_id as courseId, " +
+            "sc.enrollment_date as enrollDate, " +
+            "COALESCE(sc.total_hours, 0) as totalHours, " +
+            "COALESCE(sc.completed_hours, 0) as completedHours, " +
+            "sc.status, c.course_name as courseName, u.username as studentName " +
+            "FROM student_courses sc " +
+            "JOIN courses c ON sc.course_id = c.id " +
+            "JOIN users u ON sc.student_id = u.id " +
+            "WHERE c.teacher_id = #{teacherId}")
+    List<StudentCourse> findByTeacherId(@Param("teacherId") Integer teacherId);
 } 

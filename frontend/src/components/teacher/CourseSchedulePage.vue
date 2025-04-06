@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft, ArrowRight, Calendar, Search, Clock } from '@element-plus/icons-vue';
+import { get } from '@/net';
 
 const viewType = ref('week');
 const currentDate = ref(new Date());
@@ -96,54 +97,51 @@ const goToSelectedDate = () => {
 // 获取课程数据
 const fetchCourseData = () => {
   loading.value = true;
-  // 模拟API请求
-  setTimeout(() => {
-    // 生成模拟数据
-    const mockCourses = [
-      {
-        id: 1,
-        name: '高等数学',
-        studentName: '张三',
-        startTime: '08:00',
-        endTime: '09:40',
-        date: new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), currentDate.value.getDate() - currentDate.value.getDay() + 1),
-        location: '教学楼A-101',
-        type: 1
-      },
-      {
-        id: 2,
-        name: '大学英语',
-        studentName: '李四',
-        startTime: '10:00',
-        endTime: '11:40',
-        date: new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), currentDate.value.getDate() - currentDate.value.getDay() + 2),
-        location: '教学楼B-203',
-        type: 2
-      },
-      {
-        id: 3,
-        name: '物理学',
-        studentName: '王五',
-        startTime: '14:00',
-        endTime: '15:40',
-        date: new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), currentDate.value.getDate() - currentDate.value.getDay() + 3),
-        location: '实验楼C-302',
-        type: 3
-      },
-      {
-        id: 4,
-        name: '计算机编程',
-        studentName: '赵六',
-        startTime: '16:00',
-        endTime: '17:40',
-        date: new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), currentDate.value.getDate() - currentDate.value.getDay() + 4),
-        location: '计算机楼D-401',
-        type: 4
-      }
-    ];
-    courses.value = mockCourses;
+  
+  // 从session中获取用户ID
+  const userInfo = JSON.parse(sessionStorage.getItem('userInfo') || '{}');
+  const teacherId = userInfo.id;
+  
+  if (!teacherId) {
+    ElMessage.error('未找到教师信息，请重新登录');
     loading.value = false;
-  }, 500);
+    return;
+  }
+  
+  get(`/api/teacher/course-schedule?teacherId=${teacherId}`, (data) => {
+    console.log("获取课程表成功:", data);
+    
+    // 获取当前周开始日期（周一）
+    const currentWeekStart = new Date(currentDate.value);
+    const day = currentWeekStart.getDay() || 7; // 将周日的0转换为7
+    currentWeekStart.setDate(currentWeekStart.getDate() - day + 1); // 调整到周一
+    
+    // 转换API返回的数据格式
+    courses.value = data.map(schedule => {
+      // 根据weekday（1-7）确定课程日期
+      const courseDate = new Date(currentWeekStart);
+      // weekday为1表示周一，7表示周日
+      const weekday = schedule.weekday || 1;
+      courseDate.setDate(courseDate.getDate() + (weekday - 1));
+      
+      return {
+        id: schedule.id,
+        name: schedule.courseName || '',
+        studentName: schedule.studentName || '班级课程', // 默认为班级课程
+        startTime: schedule.startTime || '08:00', // 提供默认值
+        endTime: schedule.endTime || '09:40', // 提供默认值
+        date: courseDate,
+        location: schedule.location || '未指定地点',
+        type: 1 // 默认类型
+      };
+    });
+    
+    loading.value = false;
+  }, (message) => {
+    console.error("获取课程表失败:", message);
+    ElMessage.error('获取课程表失败: ' + message);
+    loading.value = false;
+  });
 };
 
 // 获取指定日期的课程
@@ -174,7 +172,7 @@ const viewCourseDetail = (course) => {
 }
 
 onMounted(() => {
-  fetchCourseData()
+  fetchCourseData();
 })
 </script>
 

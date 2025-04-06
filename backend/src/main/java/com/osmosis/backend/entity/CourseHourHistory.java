@@ -2,6 +2,7 @@ package com.osmosis.backend.entity;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * 课时历史记录项实体类
@@ -9,6 +10,7 @@ import java.time.LocalTime;
 public class CourseHourHistory {
     private Integer id;
     private LocalDate date;
+    private String formattedDate; // 添加格式化后的日期字符串
     private String subject;
     private String teacher;
     private Double hours;
@@ -23,7 +25,7 @@ public class CourseHourHistory {
     
     public CourseHourHistory(Integer id, LocalDate date, String subject, String teacher, Double hours, String report) {
         this.id = id;
-        this.date = date;
+        this.setDate(date);
         this.subject = subject;
         this.teacher = teacher;
         this.hours = hours;
@@ -45,6 +47,24 @@ public class CourseHourHistory {
     
     public void setDate(LocalDate date) {
         this.date = date;
+        if (date != null) {
+            this.formattedDate = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        }
+    }
+    
+    public String getFormattedDate() {
+        return formattedDate;
+    }
+    
+    public void setFormattedDate(String formattedDate) {
+        this.formattedDate = formattedDate;
+        if (formattedDate != null && !formattedDate.isEmpty()) {
+            try {
+                this.date = LocalDate.parse(formattedDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            } catch (Exception e) {
+                // 解析失败，忽略
+            }
+        }
     }
     
     public String getSubject() {

@@ -1,7 +1,7 @@
 <script setup>
 import {Lock, User} from "@element-plus/icons-vue";
-import {post, get} from "@/net";
-import {ElMessage} from "element-plus";
+import {post, get, login as loginApi} from "@/net";
+import {ElMessage, ElLoading} from "element-plus";
 import router from "@/router";
 import {reactive, onMounted} from "vue";
 import "element-plus/es/components/message/style/css";
@@ -42,49 +42,68 @@ const navigateByRole = (role) => {
 const login = () => {
   if (!form.username || !form.password) {
     ElMessage.warning('用户名或密码不能为空！')
+    return;
   }
-  else {
-    // 如果勾选了记住我，保存用户名到localStorage
-    if (form.remember) {
-      localStorage.setItem('rememberedUsername', form.username)
-    } else {
-      localStorage.removeItem('rememberedUsername')
-    }
-    
-    post('/api/auth/login', () => {
-      // 登录成功后获取用户信息
-      get('/api/auth/current-user', (data) => {
-        // 存储用户信息到sessionStorage
-        sessionStorage.setItem('userInfo', JSON.stringify(data))
-        
-        // 存储用户角色
-        localStorage.setItem('userRole', data.role)
-        
-        // 设置一个标记，表示用户刚刚登录，用于显示欢迎信息
-        sessionStorage.setItem('justLoggedIn', 'true')
-        
-        // 根据角色跳转
-        navigateByRole(data.role)
-      }, () => {
-        // 如果获取用户信息失败，尝试获取角色
-        get('/api/auth/check-role', (role) => {
-          localStorage.setItem('userRole', role)
-          sessionStorage.setItem('justLoggedIn', 'true')
-          navigateByRole(role)
-        }, () => {
-          // 如果都失败，跳转到默认页面
-          router.push('/index')
-        })
-      })
+  
+  // 如果勾选了记住我，保存用户名到localStorage
+  if (form.remember) {
+    localStorage.setItem('rememberedUsername', form.username)
+  } else {
+    localStorage.removeItem('rememberedUsername')
+  }
+  
+  // 显示加载状态
+  const loading = ElLoading.service({
+    lock: true,
+    text: '登录中...',
+    background: 'rgba(0, 0, 0, 0.7)',
+  });
+  
+  // 使用新的login函数
+  loginApi(form.username, form.password, () => {
+    // 登录成功后获取用户信息
+    get('/api/auth/current-user', (data) => {
+      // 关闭加载状态
+      loading.close();
       
-    },{
-          username: form.username,
-          password: form.password,
-          remember: form.remember
-    }, (message)=>{
-      ElMessage.warning(message)
+      // 存储用户信息到sessionStorage
+      sessionStorage.setItem('userInfo', JSON.stringify(data))
+      
+      // 存储用户角色
+      localStorage.setItem('userRole', data.role)
+      
+      // 设置一个标记，表示用户刚刚登录，用于显示欢迎信息
+      sessionStorage.setItem('justLoggedIn', 'true')
+      
+      // 显示成功消息
+      ElMessage.success('登录成功，欢迎回来！');
+      
+      // 根据角色跳转
+      setTimeout(() => {
+        navigateByRole(data.role)
+      }, 500);
+    }, (error) => {
+      // 关闭加载状态
+      loading.close();
+      
+      console.error('获取用户信息失败:', error);
+      
+      // 如果获取用户信息失败，尝试获取角色
+      get('/api/auth/check-role', (role) => {
+        localStorage.setItem('userRole', role)
+        sessionStorage.setItem('justLoggedIn', 'true')
+        navigateByRole(role)
+      }, () => {
+        // 如果都失败，跳转到默认页面
+        ElMessage.warning('无法获取用户角色，将跳转到默认页面');
+        router.push('/index')
+      })
     })
-  }
+  }, (message) => {
+    // 关闭加载状态
+    loading.close();
+    ElMessage.error(message)
+  });
 }
 </script>
 

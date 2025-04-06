@@ -190,7 +190,9 @@ public class StudentServiceImpl implements StudentService {
                     if (record.getClassDate() != null) {
                         history.setDate(record.getClassDate());
                     } else {
-                        history.setDate(LocalDate.now());
+                        // 使用2023年9月15日作为默认日期
+                        LocalDate defaultDate = LocalDate.of(2023, 9, 15);
+                        history.setDate(defaultDate);
                     }
                     
                     history.setSubject(record.getCourseName());

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>问题修复及优化记录</title>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1, h2, h3 {
+      color: #333;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    code {
+      font-family: Monaco, Consolas, monospace;
+      font-size: 90%;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .note {
+      background-color: #ffffcc;
+      border-left: 4px solid #ffeb3b;
+      padding: 10px;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>问题修复及优化记录</h1>
+  
+  <h2>1. 课时统计不对（显示为0）问题</h2>
+  <p><strong>问题描述：</strong> 在教师的课程管理页面，每个学生已完成的课时数显示不正确（都显示为0）。</p>
+  <p><strong>原因：</strong> 前端在处理API返回的嵌套数据结构时逻辑有误，没有正确计算已完成的课时数量。</p>
+  <p><strong>解决方案：</strong> 修改前端获取课程信息和计算完成课时的逻辑。</p>
+  <pre><code>// 修改前：
+getTeacherCourses() {
+  get(`/api/teacher/courses?teacherId=${this.teacherId}`, (courses) => {
+    // 处理课程数据
+    this.courseList = courses.map(course => {
+      return {
+        ...course,
+        completedHours: 0 // 初始化为0但没有更新
+      };
+    });
+  });
+}
+
+// 修改后：
+getTeacherCourses() {
+  get(`/api/teacher/courses?teacherId=${this.teacherId}`, (courses) => {
+    // 处理课程数据并查询每个学生的完成课时
+    const processCourses = async () => {
+      // 创建课程分组
+      const courseGroups = {};
+      
+      for (const course of courses) {
+        // 初始化课程组
+        if (!courseGroups[course.courseId]) {
+          courseGroups[course.courseId] = {
+            courseId: course.courseId,
+            courseName: course.courseName,
+            students: []
+          };
+        }
+        
+        // 查询该学生的课时记录
+        try {
+          const response = await axios.get(`/api/teacher/student-course-records?studentId=${course.studentId}&courseId=${course.courseId}`);
+          let classHours = 0;
+          
+          if (response.data && response.data.success) {
+            const records = response.data.data || [];
+            // 只计算已完成状态的课时
+            classHours = records.filter(r => r.status === 'completed').length;
+          }
+          
+          // 添加学生信息到课程组
+          courseGroups[course.courseId].students.push({
+            studentId: course.studentId,
+            studentName: course.studentName,
+            completedHours: classHours
+          });
+        } catch (error) {
+          console.error(`获取课时记录失败: ${error}`);
+        }
+      }
+      
+      // 更新课程列表
+      this.courseList = Object.values(courseGroups);
+      this.loading = false;
+    };
+    
+    processCourses();
+  });
+}
+</code></pre>
+
+  <h2>2. 课时记录日期显示问题</h2>
+  <p><strong>问题描述：</strong> 课时记录中的日期显示格式不一致，有些显示为"1970-01-01"（无效日期）。</p>
+  <p><strong>原因：</strong> 前端日期格式化函数未正确处理不同格式的日期字符串，特别是"MM/DD/YYYY"格式。</p>
+  <p><strong>解决方案：</strong> 重写日期格式化函数，增强对多种日期格式的支持。</p>
+  <pre><code>// 修改前：
+const formatDate = (dateStr) => {
+  if (!dateStr) return '未设置';
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('zh-CN');
+  } catch (e) {
+    return dateStr;
+  }
+};
+
+// 修改后：
+const formatDate = (date) => {
+  if (!date) {
+    return '未知日期';
+  }
+  
+  try {
+    // 如果是字符串，尝试识别不同的日期格式
+    if (typeof date === 'string') {
+      // 尝试解析ISO日期格式 (YYYY-MM-DD)
+      if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // 已经是YYYY-MM-DD格式，直接返回
+        return date;
+      }
+      
+      // 尝试解析MM/DD/YYYY格式
+      if (date.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+        const parts = date.split('/');
+        const month = parts[0].padStart(2, '0');
+        const day = parts[1].padStart(2, '0');
+        const year = parts[2];
+        return `${year}-${month}-${day}`;
+      }
+      
+      // 尝试用Date构造函数
+      const parsedDate = new Date(date);
+      if (!isNaN(parsedDate.getTime())) {
+        const year = parsedDate.getFullYear();
+        const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(parsedDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    }
+    
+    // 如果是Date对象
+    if (date instanceof Date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    return date;
+  } catch (error) {
+    console.error("日期格式化错误:", error);
+    return '日期格式错误';
+  }
+};
+</code></pre>
+
+  <h2>3. 学生姓名显示"班级课程"问题</h2>
+  <p><strong>问题描述：</strong> 在课程管理页面，部分学生的姓名显示为"班级课程"而非实际姓名。</p>
+  <p><strong>原因：</strong> API返回的学生数据中包含'admin'用户，它们被错误地显示在学生列表中。</p>
+  <p><strong>解决方案：</strong> 在前端处理课程列表时，过滤掉姓名为'admin'的用户，并确保学生ID和姓名正确。</p>
+  <pre><code>// 修改前：
+getTeacherCourses() {
+  get(`/api/teacher/courses?teacherId=${this.teacherId}`, (courses) => {
+    // 处理课程数据，但没有过滤admin用户
+    this.courseList = courses.map(course => { ... });
+  });
+}
+
+// 修改后：
+getTeacherCourses() {
+  get(`/api/teacher/courses?teacherId=${this.teacherId}`, (courses) => {
+    // 过滤掉admin用户和空姓名
+    const validCourses = courses.filter(course => 
+      course.studentName !== 'admin' && 
+      course.studentName && 
+      course.studentName.trim() !== ''
+    );
+    
+    // 按课程分组
+    const courseGroups = {};
+    validCourses.forEach(course => {
+      if (!courseGroups[course.courseId]) {
+        courseGroups[course.courseId] = {
+          courseId: course.courseId,
+          courseName: course.courseName,
+          students: []
+        };
+      }
+      
+      // 确保没有重复的学生
+      const existingStudent = courseGroups[course.courseId].students.find(
+        s => s.studentId === course.studentId
+      );
+      
+      if (!existingStudent) {
+        courseGroups[course.courseId].students.push({
+          studentId: course.studentId,
+          studentName: course.studentName,
+          completedHours: course.completedHours || 0
+        });
+      }
+    });
+    
+    this.courseList = Object.values(courseGroups);
+  });
+}
+</code></pre>
+
+  <h2>4. 课时记录为空和保存课时记录415错误</h2>
+  <p><strong>问题描述：</strong> 
+    1. 学生课程详情页面中课时记录列表显示为空。
+    2. 保存课时记录时出现"415 Unsupported Media Type"错误。
+  </p>
+  <p><strong>原因：</strong> 
+    1. 前端没有正确处理后端返回的RestBean包装数据结构。
+    2. 前端使用了form-urlencoded格式提交数据，而后端Controller使用@RequestBody期望JSON格式。
+    3. 前端日期格式处理问题导致后端无法正确解析。
+  </p>
+  <p><strong>解决方案：</strong></p>
+  <h3>1. 修复课时记录为空的问题：</h3>
+  <pre><code>// 修改前：
+get(`/api/teacher/student-course-records?studentId=${studentId}&courseId=${courseId}`, (records) => {
+  // 处理可能的嵌套数据结构
+  const recordData = Array.isArray(records) ? records : (records.message || []);
+  // ...处理记录
+});
+
+// 修改后：
+get(`/api/teacher/student-course-records?studentId=${studentId}&courseId=${courseId}`, (response) => {
+  // 处理RestBean包装的数据结构
+  let records = [];
+  if (response.success && response.message) {
+    records = response.message;
+  } else if (response.success && response.data) {
+    records = response.data;
+  } else if (Array.isArray(response)) {
+    records = response;
+  }
+  
+  // 增加空数据的提示UI
+  if (!records || records.length === 0) {
+    recentClasses.value = [];
+    // 显示添加第一条记录的空状态UI
+    return;
+  }
+  
+  // ...处理记录
+});
+</code></pre>
+
+  <h3>2. 修复415错误：</h3>
+  <pre><code>// 修改前：
+// 使用form-urlencoded格式
+const data = qs.stringify(record);
+axios.post('/api/teacher/class-hour-record', data, {
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+})
+
+// 修改后：
+// 使用JSON格式
+axios.post('/api/teacher/class-hour-record', record, {
+  headers: { 'Content-Type': 'application/json' }
+})
+</code></pre>
+
+  <h3>3. 增强日期处理：</h3>
+  <pre><code>// 确保日期格式为YYYY-MM-DD
+const classDate = reportForm.classDate ? 
+  (typeof reportForm.classDate === 'string' ? 
+    reportForm.classDate : 
+    reportForm.classDate.toISOString().split('T')[0]) : 
+  new Date().toISOString().split('T')[0];
+    
+// 准备提交的数据
+const record = {
+  id: currentReport.value.id,
+  studentId: parseInt(studentId),
+  courseId: parseInt(courseId),
+  classDate: classDate,
+  // ...其他字段
+};
+</code></pre>
+
+  <h3>4. 修复错误的API URL：</h3>
+  <pre><code>// 修改前：
+// 课程管理页面中使用了错误的API URL
+get(`/api/teacher/student-course-hours?studentId=${student.id}&courseId=${group.id}`, (hoursData) => {
+  // ...处理数据
+});
+
+// 修改后：
+// 使用正确的API URL
+get(`/api/teacher/student-course-records?studentId=${student.id}&courseId=${group.id}`, (hoursData) => {
+  // 从响应中提取数据
+  let records = [];
+  if (hoursData.success && Array.isArray(hoursData.message)) {
+    records = hoursData.message;
+  } else if (hoursData.success && Array.isArray(hoursData.data)) {
+    records = hoursData.data;
+  } else if (Array.isArray(hoursData)) {
+    records = hoursData;
+  }
+  
+  // 计算已完成课时
+  let completedHours = 0;
+  records.forEach(record => {
+    if (record.status === 'completed') {
+      completedHours += 2; // 假设每节课是2课时
+    }
+  });
+  
+  // ...创建课程记录
+});
+</code></pre>
+
+  <h3>5. 增强网络请求处理：</h3>
+  <pre><code>// 在net/index.js中增强网络请求处理函数
+function get(url, success, fail = defaultFailCallback) {
+  axios.get(url, {
+    withCredentials: true
+  }).then(({data}) => {
+    console.log(`GET请求 ${url} 响应:`, data);
+    
+    if (data.status && data.status === 200) {
+      // 标准RestBean格式，优先使用data字段
+      if (data.data !== undefined) {
+        success(data.data);
+      } 
+      // 如果没有data字段，尝试使用message字段
+      else if (data.message !== undefined) {
+        success(data.message);
+      } 
+      // 返回整个响应
+      else {
+        success(data);
+      }
+    } else if (data.success) {
+      // 特殊RestBean格式
+      if (data.data !== undefined) {
+        success(data.data);
+      } else if (data.message !== undefined) {
+        success(data.message);
+      } else {
+        success(data);
+      }
+    } else {
+      // 返回完整响应
+      success(data);
+    }
+  }).catch(err => {
+    // 处理错误
+  });
+}
+</code></pre>
+
+  <h2>5. 其他界面美化</h2>
+  <p><strong>解决方案：</strong> 对学生课程详情页面进行了美化，包括：</p>
+  <ul>
+    <li>添加了课时记录为空时的提示UI，并提供了"添加第一条记录"按钮</li>
+    <li>优化了表格布局，将开始时间和结束时间分为两列显示</li>
+    <li>添加了删除课时记录的功能，并增加了确认对话框</li>
+    <li>改进了状态标签的样式和颜色</li>
+    <li>优化了日期选择器的格式和默认值</li>
+  </ul>
+
+  <h2>6. 测试情况</h2>
+  <p><strong>修复的问题：</strong></p>
+  <ul>
+    <li>课时统计现在正确显示已完成的课时数量</li>
+    <li>课时记录的日期显示现在使用统一的"YYYY-MM-DD"格式</li>
+    <li>课程管理页面不再显示"班级课程"，而是显示实际的学生姓名</li>
+    <li>课时记录列表正确显示，并处理空数据情况</li>
+    <li>保存课时记录功能正常工作，不再出现415错误</li>
+  </ul>
+  
+  <p><strong>数据库修改：</strong> 不需要对数据库结构进行修改，现有的表结构足以支持所有功能。</p>
+  
+  <p><strong>进一步改进方向：</strong></p>
+  <ul>
+    <li>添加批量导入课时记录的功能</li>
+    <li>实现课时报告的导出为PDF或Excel功能</li>
+    <li>增加学生学习进度的可视化图表</li>
+    <li>优化移动端界面适配</li>
+  </ul>
+  
+  <div class="note">
+    <p><strong>注意：</strong> 如果在部署后发现任何其他问题，请及时报告，以便进一步改进和优化系统。</p>
+  </div>
+</body>
+</html> 

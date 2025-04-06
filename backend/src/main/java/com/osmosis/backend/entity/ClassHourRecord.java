@@ -12,6 +12,8 @@ public class ClassHourRecord {
     private Integer courseId;
     private Integer teacherId;
     private LocalDate classDate;
+    private String startTime;  // 上课开始时间 - 新增字段
+    private String endTime;    // 上课结束时间 - 新增字段
     private String theme;
     private String content;
     private String status;  // completed, absent, canceled
@@ -65,6 +67,22 @@ public class ClassHourRecord {
     
     public void setClassDate(LocalDate classDate) {
         this.classDate = classDate;
+    }
+    
+    public String getStartTime() {
+        return startTime;
+    }
+    
+    public void setStartTime(String startTime) {
+        this.startTime = startTime;
+    }
+    
+    public String getEndTime() {
+        return endTime;
+    }
+    
+    public void setEndTime(String endTime) {
+        this.endTime = endTime;
     }
     
     public String getTheme() {
